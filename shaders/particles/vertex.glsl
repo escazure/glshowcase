@@ -18,7 +18,7 @@ void main(){
 
 	vec4 worldPos = instanceMatrix * vec4(1.0);
 	vec3 pivot = vec3(0.0, -0.7, 0.0);
-	float speed = 3.0 + worldPos.y;
+	float speed = 1.0 + worldPos.y;
 	float angle = time * speed;
 
 	float h_ratio = (worldPos.y - pivot.y) / cone_height;

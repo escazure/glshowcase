@@ -3,11 +3,17 @@ CC  = gcc
 
 TARGET = museum 
 
-CXXFLAGS = -Iinclude -Iassimp/include 
+CXXFLAGS = -Iinclude -Iinclude/imgui -Iinclude/imgui/backends
 CFLAGS   = -Iinclude
 
 CPP_SRCS = \
 	$(wildcard src/*.cpp) \
+	include/imgui/imgui.cpp \
+	include/imgui/imgui_draw.cpp \
+	include/imgui/imgui_tables.cpp \
+	include/imgui/imgui_widgets.cpp \
+    include/imgui/backends/imgui_impl_glfw.cpp \
+    include/imgui/backends/imgui_impl_opengl3.cpp
 
 C_SRCS = \
 	$(wildcard src/*.c)

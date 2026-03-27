@@ -4,6 +4,9 @@ in vec3 FragPos;
 in vec3 Normal;
 
 uniform float time;
+uniform float speed;
+uniform float scale;
+uniform int fbm_octaves;
 
 out vec4 FragColor;
 
@@ -13,16 +16,15 @@ float fbm(vec3 p, int octaves);
 vec3 cloudGradient(float t);
 
 void main(){
-	float speed = 0.01;
     vec3 normal = normalize(Normal);
 
     vec3 p = FragPos * 2.0 + vec3(time * speed, time * speed * 0.3, time * speed * 0.7);
 
-    float base = fbm(p * 2.0, 5);
-    float detail = fbm(p  * 3.0, 5);
-    float fine = fbm(p * 4.0, 5);
+    float base = fbm(p * 2.0, fbm_octaves);
+    float detail = fbm(p  * 3.0, fbm_octaves);
+    float fine = fbm(p * 4.0, fbm_octaves);
 
-	float noiseValue = base + detail * 0.3 + fine * 0.5;
+	float noiseValue = base * scale + detail * scale * 0.3 + fine * scale * 0.1;
 	noiseValue = clamp(noiseValue, 0.0, 1.0);
 	noiseValue = smoothstep(0.6, 0.9, noiseValue);
 

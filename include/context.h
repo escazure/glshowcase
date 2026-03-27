@@ -1,6 +1,14 @@
 #pragma once
 #include "core.h"
 
+struct Particle {
+	glm::vec3 position;
+	glm::vec3 velocity;
+	float life;
+	float max_life;
+	float scale;
+};
+
 class Context {
 	public: 
 	GLFWwindow* window;
@@ -8,22 +16,37 @@ class Context {
 	float win_width;
 	float win_height;
 	float delta_time;
-	float cone_height = 1.5f;
-	float top_radius = 0.7f;
+	float cone_height = 1.3f;
+	float top_radius = 0.6f;
 	float light_cube_size = 0.05f;
+	float gamma = 2.2f;
+	float point_light_rotation_speed = 1.2f;
+	float point_light_rotation_radius = 3.0f;
+	float particle_lifetime = 2.0f;
+	const float max_particle_lifetime = 5.0f;
+	float cloud_speed = 0.01f;
+	float scale = 1.0f;
 
 	bool show_normals;
 	bool rotate_light;
-	bool use_blinn = true;
 	bool use_gamma_correction = true;
-	int post_processing_mode;
-	int showcase_mode;
+	bool capture_mouse = true;
 
-	unsigned int rock_amount = 10000;
-	unsigned int particle_count = 10000;
+	int post_processing_mode;
+	int demo_mode;
+	int use_blinn = 1;
+	int octaves = 5;
+
+	const unsigned int max_rock_count = 50000;
+	const unsigned int max_particle_count = 50000;
+	int rock_count = 10000;
+	int particle_count = 10000;
 
 	const unsigned int shadow_width = 1024;
 	const unsigned int shadow_height = 1024;
-	
-	Context(){}
+
+	std::vector<Particle> particles_list;
+	Context(){
+		particles_list.resize(max_particle_count);
+	}
 };

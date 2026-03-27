@@ -7,6 +7,10 @@
 #include "context.h"
 #include "stb_image.h"
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
 #include <iostream>
 #include <vector>
 #include <random>
@@ -47,7 +51,6 @@ struct SceneResources {
     Model cube;
     Model planet;
     Model rock;
-	Model point_sign;
 
     Shader phong_shader;
     Shader light_cube_shader;
@@ -68,7 +71,6 @@ struct SceneResources {
         cube("models/Cube/cube.obj"),
 		planet("models/planet/planet.obj"),
         rock("models/rock/rock.obj"),
-        point_sign("models/Signs/point_sign.obj"),
 
 		depth_shader("shaders/depth_mapping/vertex.glsl", "shaders/depth_mapping/fragment.glsl"),
         screen_shader("shaders/screen/vertex.glsl", "shaders/screen/fragment.glsl"),
@@ -95,7 +97,6 @@ void shutdown();
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xpos, double ypos);
 void process_input();
-void print_info();
 void screen_quad_setup(unsigned int &vao, unsigned int &vbo);
 void setup_screen_fbo(unsigned int& fbo, unsigned int& texture, unsigned int& rbo);
 void setup_shadow_map(unsigned int& depth_fbo, unsigned int& depth_map);
@@ -106,7 +107,7 @@ void setup_ubos(unsigned int& matrix_ubo, unsigned int& light_ubo, PointLight& p
 void update_ubos(unsigned int& matrix_ubo, unsigned int& light_ubo, glm::vec3& lightPos);
 void render_depth_map(SceneResources& sr, glm::mat4& lightSpaceMatrix);
 void render_postprocess(SceneResources& sr, unsigned int& vao, unsigned int& texture);
-void render_particles(SceneResources& sr, unsigned int& vao);
+void render_particles(SceneResources& sr, unsigned int& vao, unsigned int& vbo);
 void render_point_light(SceneResources& sr, LightData& light_data);
 void render_spot_light(SceneResources& sr, LightData& light_data);
 void render_dir_light(SceneResources& sr, LightData& light_data);
@@ -115,5 +116,9 @@ void render_texturing(SceneResources& sr);
 void render_pedestal(SceneResources& sr, unsigned int& depth_map);
 void render_floor(SceneResources& sr, unsigned int& depth_map, glm::mat4& lightSpaceMatrix);
 void render_skybox(SceneResources& sr, unsigned int& texture);
+void render_gui();
+
+void update_particles();
+void respawn(Particle& p);
 unsigned int loadCubeMap(std::vector<std::string> faces);
 SceneResources load_scene_resources();

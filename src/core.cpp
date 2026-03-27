@@ -27,11 +27,20 @@ void init(){
 		std::cout << "Failed initing gl3w\n";
 	}
 
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); 
+	(void)io;
+	io.IniFilename = nullptr;
+	ImGui::StyleColorsDark();
+
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
+
 	g_context.win_width = mode->width;
 	g_context.win_height = mode->height;
 	g_context.window = window;
 	g_context.show_normals = false;
-	print_info();
 }
 
 void run(){
@@ -57,6 +66,7 @@ void run(){
 
 	unsigned int rock_vbo;
 	setup_rock_instancing(sr.rock, rock_vbo);	
+
 	unsigned int particle_vao, particle_vbo;
 	setup_particle_system(particle_vao, particle_vbo);
 
@@ -104,16 +114,17 @@ void run(){
 		current_frame = glfwGetTime();
 		g_context.delta_time = current_frame - last_frame;
 		process_input();
+		update_particles();
 
 		static float rotation_offset = 0.0f;
 		if(g_context.rotate_light){
-			rotation_offset += 1.2f * g_context.delta_time;
-			lightPos.x = glm::sin(rotation_offset) * 3;
-			lightPos.z = glm::cos(rotation_offset) * 3;
+			rotation_offset += g_context.point_light_rotation_speed * g_context.delta_time;
+			lightPos.x = glm::sin(rotation_offset) * g_context.point_light_rotation_radius;
+			lightPos.z = glm::cos(rotation_offset) * g_context.point_light_rotation_radius;
 		}
 		else{
-			lightPos.x = glm::sin(rotation_offset) * 3;
-			lightPos.z = glm::cos(rotation_offset) * 3;
+			lightPos.x = glm::sin(rotation_offset) * g_context.point_light_rotation_radius;
+			lightPos.z = glm::cos(rotation_offset) * g_context.point_light_rotation_radius;
 		}
 		point_light_data.position = lightPos;
 
@@ -142,33 +153,29 @@ void run(){
 
 		render_floor(sr, depth_map, lightSpaceMatrix);
 		render_pedestal(sr, depth_map);
-		g_context.showcase_mode = 5;
 	
-		if(g_context.showcase_mode == 0){
-			render_point_light(sr, point_light_data);	
-		}
-
-		if(g_context.showcase_mode == 1){
-			render_spot_light(sr, spot_light_data);	
-		}
-
-		if(g_context.showcase_mode == 2){
-			render_dir_light(sr, dir_light_data);	
-		}
-
-		if(g_context.showcase_mode == 3){
-			render_instancing(sr, dir_light_data);	
-		}
-
-		if(g_context.showcase_mode == 4){
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			render_particles(sr, particle_vao);
-			glDisable(GL_BLEND);
-		}
-
-		if(g_context.showcase_mode == 5){
-			render_texturing(sr);	
+		switch(g_context.demo_mode){
+			case 0:
+				render_point_light(sr, point_light_data);	
+				break;
+			case 1:
+				render_spot_light(sr, spot_light_data);
+				break;
+			case 2:
+				render_dir_light(sr, dir_light_data);	
+				break;
+			case 3:
+				render_instancing(sr, dir_light_data);
+				break;
+			case 4:
+				glEnable(GL_BLEND);
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+				render_particles(sr, particle_vao, particle_vbo);
+				glDisable(GL_BLEND);
+				break;
+			case 5:
+				render_texturing(sr);
+				break;
 		}
 		
 		// Skybox //
@@ -184,13 +191,19 @@ void run(){
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		render_postprocess(sr, quad_vao, quad_texture);
 		// --------------------- //
-
+		
+		// Render gui //
+		render_gui();
+		// --------------------- //
 		glfwSwapBuffers(g_context.window);
 		glfwPollEvents();
 	}
 }
 
 void shutdown(){
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 	glfwDestroyWindow(g_context.window);
 	glfwTerminate();
 }
@@ -211,14 +224,17 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos){
 	lastx = xpos;
 	lasty = ypos;
 
-	g_context.camera->process_mouse_mov(xoffset, yoffset);
+	if(g_context.capture_mouse)
+		g_context.camera->process_mouse_mov(xoffset, yoffset);
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset){
-	g_context.camera->process_scroll(yoffset);
+	if(g_context.capture_mouse)
+		g_context.camera->process_scroll(yoffset);
 }
 
 void process_input(){
+	if(g_context.capture_mouse){
 	if(glfwGetKey(g_context.window, GLFW_KEY_W) == GLFW_PRESS)	
 		g_context.camera->move_forward(g_context.delta_time);
 	if(glfwGetKey(g_context.window, GLFW_KEY_S) == GLFW_PRESS)
@@ -231,62 +247,15 @@ void process_input(){
 		g_context.camera->move_up(g_context.delta_time);
 	if(glfwGetKey(g_context.window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
 		g_context.camera->move_down(g_context.delta_time);
+	}
 
-	static bool zeroKeyWasPressed = false;
-	bool zeroKeyIsPressed = glfwGetKey(g_context.window, GLFW_KEY_0) == GLFW_PRESS;
-	if (zeroKeyIsPressed && !zeroKeyWasPressed) {
-   		g_context.show_normals = !g_context.show_normals;
+	static bool escKeyWasPressed = false;
+	bool escKeyIsPressed = glfwGetKey(g_context.window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+	if (escKeyIsPressed && !escKeyWasPressed) {
+   		g_context.capture_mouse = !g_context.capture_mouse;
+		glfwSetInputMode(g_context.window, GLFW_CURSOR, g_context.capture_mouse ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 	}
-	zeroKeyWasPressed = zeroKeyIsPressed;	
-
-	static bool oneKeyWasPressed = false;
-	bool oneKeyIsPressed = glfwGetKey(g_context.window, GLFW_KEY_1) == GLFW_PRESS;
-	if(oneKeyIsPressed && !oneKeyWasPressed){
-   		g_context.rotate_light = !g_context.rotate_light;
-	}
-	oneKeyWasPressed = oneKeyIsPressed;
-	
-	static bool threeKeyWasPressed = false;
-	bool threeKeyIsPressed = glfwGetKey(g_context.window, GLFW_KEY_3) == GLFW_PRESS;
-	if(threeKeyIsPressed && !threeKeyWasPressed){
-		g_context.use_blinn = !g_context.use_blinn;
-	}
-	threeKeyWasPressed = threeKeyIsPressed;
-
-	static bool fourKeyWasPressed = false;
-	bool fourKeyIsPressed = glfwGetKey(g_context.window, GLFW_KEY_4) == GLFW_PRESS;
-	if(fourKeyIsPressed && !fourKeyWasPressed){
-		g_context.post_processing_mode = 0;
-	}
-	fourKeyWasPressed = fourKeyIsPressed;
-
-	static bool fiveKeyWasPressed = false;
-	bool fiveKeyIsPressed = glfwGetKey(g_context.window, GLFW_KEY_5) == GLFW_PRESS;
-	if(fiveKeyIsPressed && !fiveKeyWasPressed){
-		g_context.post_processing_mode = 1;
-	}
-	fiveKeyWasPressed = fiveKeyIsPressed;
-
-	static bool sixKeyWasPressed = false;
-	bool sixKeyIsPressed = glfwGetKey(g_context.window, GLFW_KEY_6) == GLFW_PRESS;
-	if(sixKeyIsPressed && !sixKeyWasPressed){
-		g_context.post_processing_mode = 2;
-	}
-	sixKeyWasPressed = sixKeyIsPressed;
-
-	static bool sevenKeyWasPressed = false;
-	bool sevenKeyIsPressed = glfwGetKey(g_context.window, GLFW_KEY_7) == GLFW_PRESS;
-	if(sevenKeyIsPressed && !sevenKeyWasPressed){
-		g_context.post_processing_mode = 3;
-	}
-	sevenKeyWasPressed = sevenKeyIsPressed;
-
-	static bool gKeyWasPressed = false;
-	bool gKeyIsPressed = glfwGetKey(g_context.window, GLFW_KEY_G) == GLFW_PRESS;
-	if(gKeyIsPressed && !gKeyWasPressed){
-		g_context.use_gamma_correction = !g_context.use_gamma_correction;
-	}
-	gKeyWasPressed = gKeyIsPressed;
+	escKeyWasPressed = escKeyIsPressed;	
 }
 
 unsigned int loadCubeMap(std::vector<std::string> faces){
@@ -313,17 +282,6 @@ unsigned int loadCubeMap(std::vector<std::string> faces){
 
 	return textureID;
 }
-
-void print_info(){
-	std::cout << "Info: \n = Camera movements:\n -- Up - Space\n -- Down - Left Control\n -- Left - A\n -- Right - D\n -- Forward - W\n -- Backward - S\n";
-	std::cout << " = Zoom - Scroll\n";
-	std::cout << " = Show normals - 0\n";
-	std::cout << " = Enable light cube rotation for point light - 1\n";
-	std::cout << " = Toggle Phong/Blinn-Phong shading model - 3\n";
-	std::cout << " = Toggle Gamma correction- G\n";
-	std::cout << " = Filters:\n -- 4 - No filter\n -- 5 - Inverse\n -- 6 - Grayscale\n -- 7 - Gaussian blur\n";
-}
-
 
 void screen_quad_setup(unsigned int &vao, unsigned int &vbo){
 	float quad_vertices[] = {
@@ -397,13 +355,13 @@ SceneResources load_scene_resources(){
 }
 
 void setup_rock_instancing(Model& rock, unsigned int& vbo){
-	glm::mat4* modelMatrices = new glm::mat4[g_context.rock_amount];
+	glm::mat4* modelMatrices = new glm::mat4[g_context.max_rock_count];
 	srand((int)glfwGetTime());
 	float radius = 2.0f;
 	float offset = 1.0f;
-	for(unsigned int i = 0; i < g_context.rock_amount; i++){
+	for(unsigned int i = 0; i < g_context.max_rock_count; i++){
 		glm::mat4 model = glm::mat4(1.0f);
-		float angle = (float)i/(float)g_context.rock_amount*360.0f;
+		float angle = (float)i/(float)g_context.rock_count*360.0f;
 		float displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
 		float x = sin(angle) * radius + displacement;
 		displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
@@ -425,7 +383,7 @@ void setup_rock_instancing(Model& rock, unsigned int& vbo){
 
 	glGenBuffers(1, &vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * g_context.rock_amount, &modelMatrices[0], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * g_context.max_rock_count , &modelMatrices[0], GL_STATIC_DRAW);
 	for(unsigned int i = 0; i < rock.meshes.size(); i++){
 		unsigned int vao = rock.meshes[i].VAO;	
 		glBindVertexArray(vao);
@@ -449,36 +407,15 @@ void setup_rock_instancing(Model& rock, unsigned int& vbo){
 
 void setup_particle_system(unsigned int& vao, unsigned int& vbo){
 	std::size_t vec4Size = sizeof(glm::vec4);
-	glm::mat4* particleModelMatrices = new glm::mat4[g_context.particle_count];
 	for(unsigned int i = 0; i < g_context.particle_count; i++){
-		glm::mat4 model = glm::mat4(1.0f);
-
-		float dy = (rand() % 25) / 100.0f;
-		float dis = (rand() % 5) / 100.0f;
-
-		float angle = (float)i/(float)g_context.particle_count*360.0f;
-		float t = (rand() % 100) / 100.0f;
-
-		float radius = g_context.top_radius * t + dis;
-
-		float x = sin(angle) * radius;
-		float y = t * g_context.cone_height + dy;
-		float z = cos(angle) * radius;
-
-		model = glm::translate(model, glm::vec3(x, y - 0.7f, z));
-
-		float scale = (rand() % 20) / 10000.0f + 0.005;
-		model = glm::scale(model, glm::vec3(scale));
-		
-		particleModelMatrices[i] = model;
+		respawn(g_context.particles_list[i]);
 	}
-
 
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
 	glGenBuffers(1, &vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * g_context.particle_count, &particleModelMatrices[0], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * g_context.max_particle_count, NULL, GL_DYNAMIC_DRAW);
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void*)0);
 	glEnableVertexAttribArray(1);
@@ -492,6 +429,36 @@ void setup_particle_system(unsigned int& vao, unsigned int& vbo){
 	glVertexAttribDivisor(2,1);
 	glVertexAttribDivisor(3,1);
 	glBindVertexArray(0);
+}
+
+void update_particles(){
+	for(std::size_t i = 0; i < g_context.particles_list.size(); i++){
+		g_context.particles_list[i].life -= g_context.delta_time;
+		if(g_context.particles_list[i].life <= 0.0f){
+			respawn(g_context.particles_list[i]);
+		}
+	}	
+}
+
+void respawn(Particle& p){
+    float dy = (rand() % 25) / 100.0f;
+    float dis = (rand() % 5) / 100.0f;
+    float t = (rand() % 100) / 100.0f;
+
+    float angle = ((rand() % 1000) / 1000.0f) * 360.0f;
+
+    float radius = g_context.top_radius * t + dis;
+
+    float x = sin(angle) * radius;
+    float y = t * g_context.cone_height + dy;
+    float z = cos(angle) * radius;
+
+    p.position = glm::vec3(x, y - 0.7f, z);
+
+    p.life = (rand() % 100)/ 100.0f * g_context.particle_lifetime;
+    p.max_life = g_context.max_particle_lifetime;
+
+    p.scale = (rand() % 20) / 10000.0f + 0.005f;
 }
 
 void setup_lights(PointLight& p1, PointLight& p2, DirLight& dir, SpotLight& spot){
@@ -574,13 +541,13 @@ void render_depth_map(SceneResources& sr, glm::mat4& lightSpaceMatrix){
 	sr.depth_shader.set_mat4("model", model);
 	sr.pedestal.Draw(sr.depth_shader);
 
-	if(g_context.showcase_mode < 3){
+	if(g_context.demo_mode < 3){
 		model = glm::mat4(1.0f);
 		sr.depth_shader.set_mat4("model", model);
 		sr.monkey.Draw(sr.depth_shader);
 	}
 
-	if(g_context.showcase_mode == 5){
+	if(g_context.demo_mode == 5){
 		model = glm::mat4(1.0f);
 		model = glm::translate(model, glm::vec3(0.0f, 0.1f, 0.0f));
 		model = glm::rotate(model, (float)glm::radians(glfwGetTime() * 5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -589,7 +556,7 @@ void render_depth_map(SceneResources& sr, glm::mat4& lightSpaceMatrix){
 		sr.cube.Draw(sr.depth_shader);
 	}
 
-	if(g_context.showcase_mode == 3){
+	if(g_context.demo_mode == 3){
 		model = glm::mat4(1.0f);
 		model = glm::scale(model, glm::vec3(0.1f, 0.1f, 0.1f));
 		sr.depth_shader.set_mat4("model", model);
@@ -601,7 +568,7 @@ void render_postprocess(SceneResources& sr,unsigned int& vao, unsigned int& text
 	sr.screen_shader.use();
 	sr.screen_shader.set_int("screen", 0);
 	sr.screen_shader.set_int("mode", g_context.post_processing_mode);
-	sr.screen_shader.set_float("gamma", 2.2f);
+	sr.screen_shader.set_float("gamma", g_context.gamma); 
 	sr.screen_shader.set_bool("correct_gamma", g_context.use_gamma_correction);
 	
 	glBindVertexArray(vao);
@@ -611,11 +578,26 @@ void render_postprocess(SceneResources& sr,unsigned int& vao, unsigned int& text
 	glBindVertexArray(0);
 }
 
-void render_particles(SceneResources& sr, unsigned int& vao){
+void render_particles(SceneResources& sr, unsigned int& vao, unsigned int& vbo){
+	static std::vector<glm::mat4> matrices(g_context.particle_count);
+
+    glm::mat4 model = glm::mat4(1.0f);
+	for (int i = 0; i < g_context.particle_count; i++){
+		model = glm::mat4(1.0f);
+    	model = glm::translate(model, g_context.particles_list[i].position);
+    	model = glm::scale(model, glm::vec3(g_context.particles_list[i].scale));
+
+    	matrices[i] = model;
+	}
+
 	sr.particle_shader.use();
 	sr.particle_shader.set_float("time", glfwGetTime());
 	sr.particle_shader.set_float("cone_height", g_context.cone_height); 
 	sr.particle_shader.set_float("top_radius", g_context.top_radius);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::mat4) * g_context.particle_count, matrices.data());
+
 	glBindVertexArray(vao);
 	glDrawArraysInstanced(GL_POINTS, 0, 1, g_context.particle_count);
 	glBindVertexArray(0);
@@ -740,7 +722,7 @@ void render_instancing(SceneResources& sr, LightData& light_data){
 	sr.rock_shader.set_float("time", glfwGetTime() * 0.03f);
 	for(unsigned int i = 0; i < sr.rock.meshes.size(); i++){
 		glBindVertexArray(sr.rock.meshes[i].VAO);
-		glDrawElementsInstanced(GL_TRIANGLES, sr.rock.meshes[i].indices.size(), GL_UNSIGNED_INT, 0, g_context.rock_amount);
+		glDrawElementsInstanced(GL_TRIANGLES, sr.rock.meshes[i].indices.size(), GL_UNSIGNED_INT, 0, g_context.rock_count);
 		glBindVertexArray(0);
 	}
 }
@@ -753,6 +735,9 @@ void render_texturing(SceneResources& sr){
 	model = glm::scale(model, glm::vec3(0.5));
 	sr.procedural_shader.set_mat4("model", model);
 	sr.procedural_shader.set_float("time", glfwGetTime());
+	sr.procedural_shader.set_float("speed", g_context.cloud_speed);
+	sr.procedural_shader.set_float("scale", g_context.scale);
+	sr.procedural_shader.set_int("fbm_octaves", g_context.octaves);
 	sr.cube.Draw(sr.procedural_shader);
 }
 
@@ -800,4 +785,96 @@ void render_skybox(SceneResources& sr, unsigned int& texture){
 	sr.skybox_shader.use();
 	sr.skybox_shader.set_int("skybox", 2);
 	sr.skybox.Draw(sr.skybox_shader);
+}
+
+void render_gui(){
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	ImGui::SetNextWindowPos(ImVec2(0.0f, 30.0f));
+	ImGui::SetNextWindowSize(ImVec2(400.0f, 600.0f));
+
+	ImGui::Begin("Rendering Demo");
+	ImGui::Text("Demo mode");
+	ImGui::Separator();
+
+	ImGui::RadioButton("Point lighting", &g_context.demo_mode, 0);
+	if(g_context.demo_mode == 0){
+		ImGui::Indent(20.0f);
+		ImGui::RadioButton("Phong", &g_context.use_blinn, 0);
+		ImGui::RadioButton("Blinn-Phong", &g_context.use_blinn, 1);
+		ImGui::Checkbox("Rotate light", &g_context.rotate_light);
+		ImGui::SliderFloat("Rotation speed", &g_context.point_light_rotation_speed, -3.0f, 3.0f, "%.1f");
+		ImGui::SliderFloat("Rotation radius", &g_context.point_light_rotation_radius, 0.0f, 5.0f, "%.2f");
+		ImGui::Unindent(20.0f);
+	}
+
+	ImGui::RadioButton("Spot lighting", &g_context.demo_mode, 1);
+	if(g_context.demo_mode == 1){
+		ImGui::Indent(20.0f);
+		ImGui::RadioButton("Phong", &g_context.use_blinn, 0);
+		ImGui::RadioButton("Blinn-Phong", &g_context.use_blinn, 1);
+		ImGui::Unindent(20.0f);
+	}
+
+	ImGui::RadioButton("Directional lighting", &g_context.demo_mode, 2);
+	if(g_context.demo_mode == 2){
+		ImGui::Indent(20.0f);
+		ImGui::RadioButton("Phong", &g_context.use_blinn, 0);
+		ImGui::RadioButton("Blinn-Phong", &g_context.use_blinn, 1);
+		ImGui::Unindent(20.0f);
+	}
+
+	ImGui::RadioButton("Instancing", &g_context.demo_mode, 3);
+	if(g_context.demo_mode == 3){
+		ImGui::Indent(20.0f);
+		ImGui::SliderInt("Instance count", &g_context.rock_count, 0, g_context.max_rock_count);
+		ImGui::Unindent(20.0f);
+	}
+
+	ImGui::RadioButton("Particles", &g_context.demo_mode, 4);
+	if(g_context.demo_mode == 4){
+		ImGui::Indent(20.0f);
+		ImGui::SliderInt("Particle count", &g_context.particle_count, 0, g_context.max_particle_count);
+		ImGui::SliderFloat("Particle lifetime", &g_context.particle_lifetime, 0, g_context.max_particle_lifetime);
+		ImGui::SliderFloat("Cone height", &g_context.cone_height, 0, 1.5f);
+		ImGui::SliderFloat("Cone top radius", &g_context.top_radius, 0, 1.0f);
+		ImGui::Unindent(20.0f);
+	}
+	
+	ImGui::RadioButton("Procedural", &g_context.demo_mode, 5);
+	if(g_context.demo_mode == 5){
+		ImGui::Indent(20.0f);
+		ImGui::SliderInt("FBM Octaves", &g_context.octaves, 1, 8);
+		ImGui::SliderFloat("Scale", &g_context.scale, 1.0, 2.0);
+		ImGui::SliderFloat("Cloud speed", &g_context.cloud_speed, 0.01, 1.0, "%.2f");
+		ImGui::Unindent(20.0f);
+	}
+	ImGui::Separator();
+
+	ImGui::NewLine();
+	ImGui::Text("Post processing");
+	ImGui::Separator();
+
+	ImGui::RadioButton("Normal", &g_context.post_processing_mode, 0);
+	ImGui::RadioButton("Inverse", &g_context.post_processing_mode, 1);
+	ImGui::RadioButton("Grayscale", &g_context.post_processing_mode, 2);
+	ImGui::RadioButton("Gaussian Blur", &g_context.post_processing_mode, 3);
+
+	ImGui::Checkbox("Normal Visualization", &g_context.show_normals);
+	ImGui::Checkbox("Gamma Correction", &g_context.use_gamma_correction);
+	ImGui::SliderFloat("Gamma", &g_context.gamma, 0.0f, 3.0f, "%.1f");
+	ImGui::Separator();
+
+	ImGui::NewLine();
+	ImGui::Text("Performance");
+	ImGui::Separator();
+	ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+	ImGui::Separator();
+
+	ImGui::End();
+
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
