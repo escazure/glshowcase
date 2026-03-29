@@ -3,6 +3,8 @@ in vec2 TexCoords;
 in vec3 Normal;
 in vec3 FragPos;
 
+uniform bool showNormals;
+
 out vec4 FragColor;
 
 struct Material {
@@ -29,7 +31,8 @@ vec3 calcDirLight(DirLight light, vec3 normal, vec3 viewDir);
 void main(){
 	vec3 normal = normalize(Normal);
 	vec3 viewDir = normalize(viewPos - FragPos);
-	FragColor = vec4(calcDirLight(light, normal, viewDir), 1.0);
+	if(showNormals) FragColor = vec4(normal,1.0);
+	else FragColor = vec4(calcDirLight(light, normal, viewDir), 1.0);
 }
 
 vec3 calcDirLight(DirLight light, vec3 normal, vec3 viewDir){

@@ -645,6 +645,7 @@ void render_particles(SceneResources& sr, unsigned int& vao, unsigned int& vbo, 
 	model = glm::scale(model, glm::vec3(g_context.light_cube_size));
 	sr.light_cube_shader.set_mat4("model", model);
 	sr.light_cube_shader.set_vec3("lightColor", light_data.color);
+	sr.light_cube_shader.set_bool("showNormals", g_context.show_normals);
 	sr.light_cube.Draw(sr.light_cube_shader);
 }
 
@@ -678,6 +679,7 @@ void render_point_light(SceneResources& sr, LightData& light_data){
 	model = glm::scale(model, glm::vec3(g_context.light_cube_size));
 	sr.light_cube_shader.set_mat4("model", model);
 	sr.light_cube_shader.set_vec3("lightColor", light_data.color);
+	sr.light_cube_shader.set_bool("showNormals", g_context.show_normals);
 	sr.light_cube.Draw(sr.light_cube_shader);
 }
 
@@ -712,6 +714,7 @@ void render_spot_light(SceneResources& sr, LightData& light_data){
 	model = glm::scale(model, glm::vec3(g_context.light_cube_size));
 	sr.light_cube_shader.set_mat4("model", model);
 	sr.light_cube_shader.set_vec3("lightColor", light_data.color);
+	sr.light_cube_shader.set_bool("showNormals", g_context.show_normals);
 	sr.light_cube.Draw(sr.light_cube_shader);
 }
 
@@ -746,6 +749,7 @@ void render_dir_light(SceneResources& sr, LightData& light_data){
 	model = glm::scale(model, glm::vec3(g_context.light_cube_size));
 	sr.light_cube_shader.set_mat4("model", model);
 	sr.light_cube_shader.set_vec3("lightColor", light_data.color);
+	sr.light_cube_shader.set_bool("showNormals", g_context.show_normals);
 	sr.light_cube.Draw(sr.light_cube_shader);
 }
 
@@ -753,6 +757,7 @@ void render_instancing(SceneResources& sr, LightData& light_data){
 	glm::vec3 lightDir = glm::normalize(glm::vec3(6.0f, 0.0f, 6.0f) - light_data.position);
 	sr.planet_shader.use();
 	sr.planet_shader.set_vec3("viewPos", g_context.camera->position);
+	sr.planet_shader.set_bool("showNormals", g_context.show_normals);
 	sr.planet_shader.set_vec3("light.direction", lightDir);
 	sr.planet_shader.set_vec3("light.ambient", glm::vec3(0.0f, 0.0f, 0.0f));
 	sr.planet_shader.set_vec3("light.diffuse", glm::vec3(1.0f, 1.0f, 1.0f));
@@ -767,6 +772,7 @@ void render_instancing(SceneResources& sr, LightData& light_data){
 
 	sr.rock_shader.use();
 	sr.rock_shader.set_vec3("viewPos", g_context.camera->position);
+	sr.rock_shader.set_bool("showNormals", g_context.show_normals);
 	sr.rock_shader.set_vec3("light.direction", lightDir);
 	sr.rock_shader.set_vec3("light.ambient", glm::vec3(0.0f, 0.0f, 0.0f));
 	sr.rock_shader.set_vec3("light.diffuse", glm::vec3(1.0f, 1.0f, 1.0f));
@@ -784,6 +790,7 @@ void render_instancing(SceneResources& sr, LightData& light_data){
 	model = glm::scale(model, glm::vec3(g_context.light_cube_size));
 	sr.light_cube_shader.set_mat4("model", model);
 	sr.light_cube_shader.set_vec3("lightColor", light_data.color);
+	sr.light_cube_shader.set_bool("showNormals", g_context.show_normals);
 	sr.light_cube.Draw(sr.light_cube_shader);
 }
 
@@ -798,6 +805,7 @@ void render_texturing(SceneResources& sr, LightData& light_data){
 	sr.procedural_shader.set_float("speed", g_context.cloud_speed);
 	sr.procedural_shader.set_float("scale", g_context.scale);
 	sr.procedural_shader.set_int("fbm_octaves", g_context.octaves);
+	sr.procedural_shader.set_bool("showNormals", g_context.show_normals);
 	sr.cube.Draw(sr.procedural_shader);
 
 	sr.light_cube_shader.use();
@@ -806,6 +814,7 @@ void render_texturing(SceneResources& sr, LightData& light_data){
 	model = glm::scale(model, glm::vec3(g_context.light_cube_size));
 	sr.light_cube_shader.set_mat4("model", model);
 	sr.light_cube_shader.set_vec3("lightColor", light_data.color);
+	sr.light_cube_shader.set_bool("showNormals", g_context.show_normals);
 	sr.light_cube.Draw(sr.light_cube_shader);
 }
 
@@ -819,6 +828,7 @@ void render_pedestal(SceneResources& sr, unsigned int& depth_map, glm::mat4& lig
 	model = glm::translate(model, glm::vec3(0.0f, -2.0f, 0.0f));
 	sr.phong_shader.set_mat4("model", model);
 	sr.phong_shader.set_bool("hasSpecular", false);
+	sr.phong_shader.set_bool("showNormals", g_context.show_normals);
 	sr.phong_shader.set_vec3("specular_value", glm::vec3(0.02f, 0.02f, 0.02f));
 	sr.phong_shader.set_int("depth_map", 1);
 	sr.phong_shader.set_bool("calculateShadows", true);
@@ -850,6 +860,7 @@ void render_floor(SceneResources& sr, unsigned int& depth_map, glm::mat4& lightS
 	model = glm::translate(model, glm::vec3(0.0f, -2.5f, 0.0f));
 	model = glm::scale(model, glm::vec3(3.0f, 1.0f, 3.0f));
 	sr.phong_shader.set_mat4("model", model);	
+	sr.phong_shader.set_bool("showNormals", g_context.show_normals);
 	sr.phong_shader.set_bool("hasSpecular", false);
 	sr.phong_shader.set_mat4("lightSpaceMatrix", lightSpaceMatrix);
 	sr.phong_shader.set_int("depth_map", 1);

@@ -7,6 +7,7 @@ uniform float time;
 uniform float speed;
 uniform float scale;
 uniform int fbm_octaves;
+uniform bool showNormals;
 
 out vec4 FragColor;
 
@@ -50,7 +51,8 @@ void main(){
 	vec3 color = earth;
 	color = mix(color, cloudColor, cloudMask);
 
-	FragColor = vec4(color, 1.0);
+	if(showNormals) FragColor = vec4(normal, 1.0);
+	else FragColor = vec4(color, 1.0);
 }
 
 float hash(vec3 p){
