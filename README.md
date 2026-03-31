@@ -79,6 +79,11 @@ This project is a real-time graphics showcase built in C++/OpenGL. It demonstrat
 
 ---
 ### Dependencies:
+- <a href="https://github.com/icaven/glm" target="_blank">GLM</a> - CPU side math
+- <a href="https://github.com/glfw/glfw" target="_blank">GLFW</a> - window management
+- <a href="https://github.com/ocornut/imgui" target="_blank">ImGui</a> - gui
+- <a href="https://github.com/nothings/stb" target="_blank">stb</a> - texture loading
+- <a href="https://github.com/assimp/assimp" target="_blank">Assimp</a> - model loading
 
 
 ### Build:
