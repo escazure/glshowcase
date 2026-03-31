@@ -43,6 +43,8 @@ struct SceneResources {
     Model scene_floor;
     Model skybox;
     Model cube;
+	Model sphere;
+	Model torus;
     Model planet;
     Model rock;
 
@@ -63,6 +65,8 @@ struct SceneResources {
         scene_floor("models/MuseumSceneFloor/scene_floor.obj"),
         skybox("models/Skybox/cube.obj"),
         cube("models/Cube/cube.obj"),
+        sphere("models/Sphere/sphere.obj"),
+        torus("models/Torus/torus.obj"),
 		planet("models/planet/planet.obj"),
         rock("models/rock/rock.obj"),
 

@@ -30,7 +30,8 @@ class Context {
 	bool resize_requested = false;
 	bool cull_front_faces = false;
 
-	int post_processing_mode;
+	int post_processing_mode = 0;
+	int procedural_mode = 0;
 	int demo_mode;
 	int use_blinn = 1;
 	int octaves = 5;

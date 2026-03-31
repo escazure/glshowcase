@@ -29,10 +29,16 @@ void render_depth_map(SceneResources& sr, glm::mat4& lightSpaceMatrix){
 	if(g_context.demo_mode == 5){
 		model = glm::mat4(1.0f);
 		model = glm::translate(model, glm::vec3(0.0f, 0.1f, 0.0f));
-		model = glm::rotate(model, (float)glm::radians(glfwGetTime() * 5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		if(g_context.procedural_mode == 0)
+			model = glm::rotate(model, (float)glm::radians(glfwGetTime() * 5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 		model = glm::scale(model, glm::vec3(0.5));
 		sr.depth_shader.set_mat4("model", model);
-		sr.cube.Draw(sr.depth_shader);
+		if(g_context.procedural_mode == 0)
+			sr.cube.Draw(sr.depth_shader);
+		else if(g_context.procedural_mode == 1)
+			sr.sphere.Draw(sr.depth_shader);
+		else if(g_context.procedural_mode == 2)
+			sr.torus.Draw(sr.depth_shader);
 	}
 
 	if(g_context.demo_mode == 3){
@@ -259,7 +265,12 @@ void render_texturing(SceneResources& sr, LightData& light_data){
 	sr.procedural_shader.set_float("scale", g_context.scale);
 	sr.procedural_shader.set_int("fbm_octaves", g_context.octaves);
 	sr.procedural_shader.set_bool("showNormals", g_context.show_normals);
-	sr.cube.Draw(sr.procedural_shader);
+	if(g_context.procedural_mode == 0)
+		sr.cube.Draw(sr.procedural_shader);
+	else if(g_context.procedural_mode == 1)
+		sr.sphere.Draw(sr.procedural_shader);
+	else if(g_context.procedural_mode == 2)
+		sr.torus.Draw(sr.procedural_shader);
 
 	sr.light_cube_shader.use();
 	model = glm::mat4(1.0f);
@@ -409,6 +420,9 @@ void render_gui(){
 	ImGui::RadioButton("Procedural", &g_context.demo_mode, 5);
 	if(g_context.demo_mode == 5){
 		ImGui::Indent(20.0f);
+		ImGui::RadioButton("Cube", &g_context.procedural_mode, 0);
+		ImGui::RadioButton("Sphere", &g_context.procedural_mode, 1);
+		ImGui::RadioButton("Torus", &g_context.procedural_mode, 2);
 		ImGui::SliderInt("FBM Octaves", &g_context.octaves, 1, 8);
 		ImGui::SliderFloat("Scale", &g_context.scale, 1.0, 2.0);
 		ImGui::SliderFloat("Cloud speed", &g_context.cloud_speed, 0.01, 1.0, "%.2f");
@@ -420,6 +434,7 @@ void render_gui(){
 	ImGui::Text("Post processing");
 	ImGui::Separator();
 
+	ImGui::RadioButton("Normal", &g_context.post_processing_mode, 0);
 	ImGui::RadioButton("Inverse", &g_context.post_processing_mode, 1);
 	ImGui::RadioButton("Grayscale", &g_context.post_processing_mode, 2);
 	ImGui::RadioButton("Gaussian Blur", &g_context.post_processing_mode, 3);
